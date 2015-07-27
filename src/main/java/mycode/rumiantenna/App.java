@@ -2,6 +2,7 @@ package mycode.rumiantenna;
 
 import gnu.io.CommPortIdentifier;
 import gnu.io.SerialPort;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -139,24 +140,28 @@ public class App {
                 });
 
                 // twitter
-                fromF("twitter://search?type=polling&delay=60&keywords=大久保瑠美,http&consumerKey=%s&consumerSecret=%s&accessToken=%s&accessTokenSecret=%s", consumerKey, consumerSecret, accessToken, accessTokenSecret)
+                from("timer:e?period=60s")
+                        .toF("twitter://search?type=direct&keywords=大久保瑠美,http&consumerKey=%s&consumerSecret=%s&accessToken=%s&accessTokenSecret=%s", consumerKey, consumerSecret, accessToken, accessTokenSecret)
                         .choice().when((Exchange exchange) -> {
-                            Status body = exchange.getIn().getBody(Status.class);
-                            URLEntity[] urlEntities = body.getURLEntities();
-                            if (urlEntities.length > 0) {
-                                List<String> collect = Stream.of(urlEntities).map((entity) -> entity.getExpandedURL())
-                                .filter((url) -> !url.contains("amzn.to") && !url.contains("bit.ly") && !url.contains("goo.gl") && !url.contains("ift.tt") && !url.contains("nico.ms") && !url.contains("youtu.be"))
-                                .filter((url) -> urls.add(url))
-                                .collect(Collectors.toList());
-                                if (!collect.isEmpty()) {
-                                    System.out.println("twitter update: " + body.getText() + " link: " + collect);
-                                    return true;
+                            ArrayList<Status> list = exchange.getIn().getBody(ArrayList.class);
+                            boolean empty = urls.isEmpty();
+                            return list.stream().anyMatch((body) -> {
+                                URLEntity[] urlEntities = body.getURLEntities();
+                                if (urlEntities.length > 0) {
+                                    List<String> collect = Stream.of(urlEntities).map((entity) -> entity.getExpandedURL())
+                                    .filter((url) -> !url.contains("amzn.to") && !url.contains("bit.ly") && !url.contains("goo.gl") && !url.contains("ift.tt") && !url.contains("nico.ms") && !url.contains("youtu.be"))
+                                    .filter((url) -> urls.add(url))
+                                    .collect(Collectors.toList());
+                                    if (!collect.isEmpty()) {
+                                        System.out.println("twitter update: " + body.getText() + " link: " + collect);
+                                        return true;
+                                    } else {
+                                        return false;
+                                    }
                                 } else {
                                     return false;
                                 }
-                            } else {
-                                return false;
-                            }
+                            }) && !empty;
                         }).to("direct:notate");
 
                 // ただの個人用ヤフーメール
