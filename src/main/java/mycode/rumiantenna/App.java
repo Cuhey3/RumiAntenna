@@ -143,12 +143,13 @@ public class App {
                         .choice().when((Exchange exchange) -> {
                             Status body = exchange.getIn().getBody(Status.class);
                             URLEntity[] urlEntities = body.getURLEntities();
+                            boolean empty = urls.isEmpty();
                             if (urlEntities.length > 0) {
                                 List<String> collect = Stream.of(urlEntities).map((entity) -> entity.getExpandedURL())
                                 .filter((url) -> !url.contains("amzn.to") && !url.contains("bit.ly") && !url.contains("goo.gl") && !url.contains("ift.tt") && !url.contains("nico.ms") && !url.contains("youtu.be"))
                                 .filter((url) -> urls.add(url))
                                 .collect(Collectors.toList());
-                                if (!collect.isEmpty()) {
+                                if (!collect.isEmpty() && !empty) {
                                     System.out.println("twitter update: " + body.getText() + " link: " + collect);
                                     return true;
                                 } else {
