@@ -25,11 +25,11 @@ public class App {
     static String amebloLatestDate = null;
     static final Set<String> backlinks = new HashSet<>();
     static final Set<String> urls = new HashSet<>();
+    static String username, password;
+    static String accessToken, accessTokenSecret, consumerKey, consumerSecret;
 
     public static void main(String[] args) throws Exception {
         Main main = new Main();
-        String username = null, password = null;
-        String accessToken = null, accessTokenSecret = null, consumerKey = null, consumerSecret = null;
         TwitterComponent component = main.getOrCreateCamelContext().getComponent("twitter", TwitterComponent.class);
         component.setAccessToken(accessToken);
         component.setAccessTokenSecret(accessTokenSecret);
