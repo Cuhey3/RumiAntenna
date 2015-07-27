@@ -1,19 +1,22 @@
 package mycode.rumiantenna;
 
+import gnu.io.CommPortIdentifier;
+import gnu.io.SerialPort;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.camel.Exchange;
-import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
+import org.apache.camel.component.twitter.TwitterComponent;
 import org.apache.camel.main.Main;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import gnu.io.CommPortIdentifier;
-import gnu.io.SerialPort;
+import twitter4j.Status;
+import twitter4j.URLEntity;
 
 public class App {
 
@@ -21,14 +24,22 @@ public class App {
     static int koepotaSize = -1;
     static String amebloLatestDate = null;
     static final Set<String> backlinks = new HashSet<>();
+    static final Set<String> urls = new HashSet<>();
 
     public static void main(String[] args) throws Exception {
         Main main = new Main();
+        String username = null, password = null;
+        String accessToken = null, accessTokenSecret = null, consumerKey = null, consumerSecret = null;
+        TwitterComponent component = main.getOrCreateCamelContext().getComponent("twitter", TwitterComponent.class);
+        component.setAccessToken(accessToken);
+        component.setAccessTokenSecret(accessTokenSecret);
+        component.setConsumerKey(consumerKey);
+        component.setConsumerSecret(consumerSecret);
         main.addRouteBuilder(new RouteBuilder() {
 
             @Override
             public void configure() throws Exception {
-                
+
                 // wikipedia article
                 from("timer:a?period=5m").choice().when((exchange) -> {
                     try {
@@ -127,8 +138,29 @@ public class App {
                     }
                 });
 
+                // twitter
+                fromF("twitter://search?type=polling&delay=60&keywords=大久保瑠美,http&consumerKey=%s&consumerSecret=%s&accessToken=%s&accessTokenSecret=%s", consumerKey, consumerSecret, accessToken, accessTokenSecret)
+                        .choice().when((Exchange exchange) -> {
+                            Status body = exchange.getIn().getBody(Status.class);
+                            URLEntity[] urlEntities = body.getURLEntities();
+                            if (urlEntities.length > 0) {
+                                List<String> collect = Stream.of(urlEntities).map((entity) -> entity.getExpandedURL())
+                                .filter((url) -> !url.contains("amzn.to") && !url.contains("bit.ly") && !url.contains("goo.gl") && !url.contains("ift.tt") && !url.contains("nico.ms") && !url.contains("youtu.be"))
+                                .filter((url) -> urls.add(url))
+                                .collect(Collectors.toList());
+                                if (!collect.isEmpty()) {
+                                    System.out.println("twitter update: " + body.getText() + " link: " + collect);
+                                    return true;
+                                } else {
+                                    return false;
+                                }
+                            } else {
+                                return false;
+                            }
+                        }).to("direct:notate");
+
                 // ただの個人用ヤフーメール
-                from("imaps://username@imap.mail.yahoo.co.jp?disconnect=false&password=xxx&consumer.delay=5000")
+                fromF("imaps://%s@imap.mail.yahoo.co.jp?disconnect=false&password=%s&consumer.delay=5000", username, password)
                         .process((exchange) -> System.out.println("yahoo mail update"))
                         .to("direct:notate");
 
