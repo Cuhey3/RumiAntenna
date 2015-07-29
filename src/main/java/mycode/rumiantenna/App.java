@@ -12,6 +12,7 @@ import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.twitter.TwitterComponent;
 import org.apache.camel.main.Main;
+import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -149,7 +150,14 @@ public class App {
                                 URLEntity[] urlEntities = body.getURLEntities();
                                 if (urlEntities.length > 0) {
                                     List<String> collect = Stream.of(urlEntities).map((entity) -> entity.getExpandedURL())
-                                    .filter((url) -> !url.contains("amzn.to") && !url.contains("bit.ly") && !url.contains("goo.gl") && !url.contains("ift.tt") && !url.contains("nico.ms") && !url.contains("youtu.be"))
+                                    .filter((url) -> !url.contains("amzn.to") && !url.contains("bit.ly") && !url.contains("goo.gl") && !url.contains("ift.tt") && !url.contains("nico.ms") && !url.contains("youtu.be") && !url.contains("matome.naver") && !url.contains("twitter.com") && !url.contains("appli-maker.jp") && !url.contains("shindanmaker") && !url.contains("-22&"))
+                                    .filter((url) -> {
+                                        try {
+                                            return Jsoup.connect(url).followRedirects(false).method(Connection.Method.GET).execute().statusCode() == 200;
+                                        } catch (Throwable t) {
+                                            return false;
+                                        }
+                                    })
                                     .filter((url) -> urls.add(url))
                                     .collect(Collectors.toList());
                                     if (!collect.isEmpty()) {
